@@ -58,10 +58,14 @@ export default function App() {
   const [page, setPage] = useState("dashboard");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+useEffect(() => {
+    const headers = {
+      "ngrok-skip-browser-warning": "true",
+      "Content-Type": "application/json"
+    };
     Promise.all([
-      axios.get(`${API}/stats`),
-      axios.get(`${API}/trades`)
+      axios.get(`${API}/stats`, { headers }),
+      axios.get(`${API}/trades`, { headers })
     ]).then(([s, t]) => {
       setStats(s.data);
       setTrades(t.data);
