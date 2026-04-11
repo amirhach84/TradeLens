@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from "recharts";
 import axios from "axios";
 
-const API = "https://alarm-circular-reactive.ngrok-free.dev/api";
+const API = "https://textbook-reasons-throwing-strength.trycloudflare.com/api";
 
 const colors = {
   bg: "#080b0f", surface: "#111820", surface2: "#162030",
