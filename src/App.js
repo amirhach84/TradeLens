@@ -109,7 +109,8 @@ export default function App() {
 
   const syncData = async () => { setSyncing(true); await loadData(); setSyncing(false); };
 
-  useEffect(() => { loadData().finally(() => setLoading(false)); }, []);
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => { loadData().finally(() => setLoading(false)); }, []);
 
   // Filter by period
   const filteredTrades = () => {
