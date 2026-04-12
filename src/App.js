@@ -1,8 +1,18 @@
 import { useState, useEffect } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from "recharts";
-import axios from "axios";
 
-const API = "https://textbook-reasons-throwing-strength.trycloudflare.com/api";
+const SUPABASE_URL = "https://ehwbdzrbypsdzrsfpboj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_9cg409A6X_8S9mPevUN8Uw_i2jfmDX9";
+
+const fetchFromSupabase = async (table, query = "") => {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, {
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`
+    }
+  });
+  return res.json();
+};
 
 const colors = {
   bg: "#080b0f", surface: "#111820", surface2: "#162030",
@@ -58,22 +68,27 @@ export default function App() {
   const [page, setPage] = useState("dashboard");
   const [loading, setLoading] = useState(true);
 
-useEffect(() => {
-    const headers = {
-      "ngrok-skip-browser-warning": "true",
-      "Content-Type": "application/json"
-    };
-    Promise.all([
-      axios.get(`${API}/stats`, { headers }),
-      axios.get(`${API}/trades`, { headers })
-    ]).then(([s, t]) => {
-      setStats(s.data);
-      setTrades(t.data);
+  useEffect(() => {
+    fetchFromSupabase("trades", "?select=*&order=open_time.desc").then((tradesData) => {
+      if (!Array.isArray(tradesData)) { setLoading(false); return; }
+      setTrades(tradesData);
+      const total = tradesData.length;
+      const wins = tradesData.filter(t => t.profit > 0).length;
+      const totalPnl = tradesData.reduce((s, t) => s + (t.profit || 0), 0);
+      const rrTrades = tradesData.filter(t => t.rr_actual);
+      const avgRr = rrTrades.length > 0 ? rrTrades.reduce((s, t) => s + t.rr_actual, 0) / rrTrades.length : 0;
+      setStats({
+        total_trades: total,
+        wins,
+        losses: total - wins,
+        win_rate: total > 0 ? Math.round(wins / total * 1000) / 10 : 0,
+        total_pnl: Math.round(totalPnl * 100) / 100,
+        avg_rr: Math.round(avgRr * 100) / 100
+      });
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
 
-  // Build equity curve
   const equityData = () => {
     let balance = 0;
     return [...trades].reverse().map((t, i) => {
@@ -82,7 +97,6 @@ useEffect(() => {
     });
   };
 
-  // Session breakdown
   const sessionData = () => {
     const map = {};
     trades.forEach(t => {
@@ -98,7 +112,6 @@ useEffect(() => {
     })).sort((a, b) => b.winRate - a.winRate);
   };
 
-  // Symbol breakdown
   const symbolData = () => {
     const map = {};
     trades.forEach(t => {
@@ -115,20 +128,15 @@ useEffect(() => {
     })).sort((a, b) => b.trades - a.trades).slice(0, 6);
   };
 
-  // Psychology insights
   const psychInsights = () => {
     if (!trades.length) return [];
     const insights = [];
-
-    // Consecutive losses
     let maxLoss = 0, cur = 0;
     [...trades].reverse().forEach(t => {
       if (t.profit < 0) { cur++; maxLoss = Math.max(maxLoss, cur); }
       else cur = 0;
     });
     if (maxLoss >= 3) insights.push(`🔴 Max consecutive losses: ${maxLoss} — risk of tilt detected`);
-
-    // Win rate after loss
     let afterLoss = { wins: 0, total: 0 };
     const rev = [...trades].reverse();
     for (let i = 1; i < rev.length; i++) {
@@ -141,20 +149,15 @@ useEffect(() => {
       const wr = Math.round(afterLoss.wins / afterLoss.total * 100);
       insights.push(`📊 Win rate after a losing trade: ${wr}% — ${wr < 40 ? "⚠️ possible revenge trading" : "✅ good recovery"}`);
     }
-
-    // Best session
     const sd = sessionData();
     if (sd.length) insights.push(`⭐ Best session: ${sd[0].name} with ${sd[0].winRate}% win rate`);
-
-    // Best symbol
     const sym = symbolData();
     if (sym.length) insights.push(`💹 Most traded: ${sym[0].name} — ${sym[0].winRate}% WR, P&L: $${sym[0].pnl}`);
-
     return insights;
   };
 
   if (loading) return <div style={styles.loading}>🔄 Loading TradeLens...</div>;
-  if (!stats) return <div style={styles.loading}>❌ Cannot connect to collector. Make sure collector.py is running.</div>;
+  if (!stats) return <div style={styles.loading}>❌ Cannot connect to Supabase.</div>;
 
   const navItems = [
     { id: "dashboard", icon: "⬡", label: "Dashboard" },
@@ -165,7 +168,6 @@ useEffect(() => {
 
   return (
     <div style={styles.app}>
-      {/* Sidebar */}
       <aside style={styles.sidebar}>
         <div style={styles.logo}>
           <div style={styles.logoText}>Trade<span style={{ color: colors.accent }}>Lens</span></div>
@@ -177,29 +179,23 @@ useEffect(() => {
           </div>
         ))}
         <div style={{ marginTop: "auto", padding: "20px 24px", borderTop: `1px solid ${colors.border}` }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Live MT5</div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Supabase Cloud</div>
           <div style={{ fontSize: 11, color: colors.green, fontFamily: "monospace", marginTop: 2 }}>● Connected</div>
         </div>
       </aside>
 
-      {/* Main */}
       <main style={styles.main}>
-
-        {/* DASHBOARD */}
         {page === "dashboard" && (
           <>
             <div style={styles.pageTitle}>Performance Dashboard</div>
-            <div style={styles.pageSub}>Auto-sync every 15 min · {stats.total_trades} trades loaded</div>
-
+            <div style={styles.pageSub}>Supabase Cloud · {stats.total_trades} trades loaded</div>
             <div style={styles.kpiRow}>
               <KPICard label="Total P&L" value={`$${stats.total_pnl?.toLocaleString()}`} sub="All time" color={stats.total_pnl >= 0 ? colors.green : colors.red} />
               <KPICard label="Win Rate" value={`${stats.win_rate}%`} sub={`${stats.wins}W · ${stats.losses}L`} color={colors.accent} />
               <KPICard label="Avg R:R" value={stats.avg_rr} sub="Actual R:R" color={colors.yellow} />
               <KPICard label="Total Trades" value={stats.total_trades} sub="All time" />
             </div>
-
             <div style={styles.grid2}>
-              {/* Equity Curve */}
               <div style={styles.card}>
                 <div style={styles.cardTitle}>Equity Curve</div>
                 <ResponsiveContainer width="100%" height={180}>
@@ -217,8 +213,6 @@ useEffect(() => {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-
-              {/* Session Breakdown */}
               <div style={styles.card}>
                 <div style={styles.cardTitle}>Win Rate by Session</div>
                 <ResponsiveContainer width="100%" height={180}>
@@ -235,8 +229,6 @@ useEffect(() => {
                 </ResponsiveContainer>
               </div>
             </div>
-
-            {/* AI Insights */}
             <div style={styles.card}>
               <div style={styles.cardTitle}>🧠 AI Pattern Analysis</div>
               <div style={styles.aiBubble}>
@@ -249,7 +241,6 @@ useEffect(() => {
           </>
         )}
 
-        {/* TRADE LOG */}
         {page === "trades" && (
           <>
             <div style={styles.pageTitle}>Trade Log</div>
@@ -264,9 +255,7 @@ useEffect(() => {
                       {t.open_time} · <SessionBadge session={t.session} />
                     </div>
                   </div>
-                  <div style={{ fontSize: 12, color: colors.text2, fontFamily: "monospace" }}>
-                    {t.duration_min}m
-                  </div>
+                  <div style={{ fontSize: 12, color: colors.text2, fontFamily: "monospace" }}>{t.duration_min}m</div>
                   <div style={{ fontSize: 13, fontFamily: "monospace", fontWeight: 500, color: t.profit >= 0 ? colors.green : colors.red, minWidth: 70, textAlign: "right" }}>
                     {t.profit >= 0 ? "+" : ""}${t.profit?.toFixed(2)}
                   </div>
@@ -277,7 +266,6 @@ useEffect(() => {
           </>
         )}
 
-        {/* ANALYTICS */}
         {page === "analytics" && (
           <>
             <div style={styles.pageTitle}>Analytics</div>
@@ -315,7 +303,6 @@ useEffect(() => {
           </>
         )}
 
-        {/* PSYCHOLOGY */}
         {page === "psychology" && (
           <>
             <div style={styles.pageTitle}>Psychology Analysis</div>
@@ -333,14 +320,13 @@ useEffect(() => {
                   {stats.win_rate < 50 && " Focus on trade selection quality — fewer but higher-quality setups."}
                   {stats.win_rate >= 50 && " Good consistency. Focus on maximizing R:R on winning trades."}
                   <br /><br />
-                  Total P&L of <strong style={{ color: stats.total_pnl >= 0 ? colors.green : colors.red }}>${stats.total_pnl}</strong> across {stats.total_trades} trades
-                  {stats.total_pnl > 0 && stats.win_rate < 50 && " — positive P&L despite sub-50% win rate suggests good R:R management."}
+                  Total P&L of <strong style={{ color: stats.total_pnl >= 0 ? colors.green : colors.red }}>${stats.total_pnl}</strong> across {stats.total_trades} trades.
+                  {stats.total_pnl > 0 && stats.win_rate < 50 && " Positive P&L despite sub-50% win rate suggests good R:R management."}
                 </div>
               </div>
             </div>
           </>
         )}
-
       </main>
     </div>
   );
