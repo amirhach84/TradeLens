@@ -43,7 +43,8 @@ export default function App() {
   const [page, setPage] = useState("dashboard");
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [lastSync, setLastSync] = useState(null);
+// eslint-disable-next-line no-unused-vars
+const [lastSync, setLastSync] = useState(null);
   const [period, setPeriod] = useState("all");
 
   const computeStats = (data) => {
