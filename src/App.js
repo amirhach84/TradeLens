@@ -35,7 +35,7 @@ const styles = {
   card: { background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: 14, padding: "20px 22px" },
   kpiLabel: { fontSize: 10, color: colors.text3, letterSpacing: 1.5, textTransform: "uppercase", fontFamily: "monospace", marginBottom: 10 },
   kpiValue: (color) => ({ fontSize: 28, fontWeight: 700, letterSpacing: -1, color: color || colors.text }),
-  kpiSub: (color) => ({ fontSize: 11, color: color || colors.text2, marginTop: 8, fontFamily: "monospace" }),
+  kpiSub: () => ({ fontSize: 11, color: colors.text2, marginTop: 8, fontFamily: "monospace" }),
   grid2: { display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, marginBottom: 20 },
   cardTitle: { fontSize: 14, fontWeight: 600, marginBottom: 18 },
   tradeRow: { display: "grid", gridTemplateColumns: "36px 1fr auto auto 10px", alignItems: "center", gap: 12, padding: "11px 14px", background: colors.bg, borderRadius: 10, marginBottom: 8, cursor: "pointer", border: `1px solid transparent`, transition: "all 0.15s" },
@@ -67,26 +67,37 @@ export default function App() {
   const [trades, setTrades] = useState([]);
   const [page, setPage] = useState("dashboard");
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState(null);
+
+  const loadData = async () => {
+    const tradesData = await fetchFromSupabase("trades", "?select=*&order=open_time.desc");
+    if (!Array.isArray(tradesData)) return;
+    setTrades(tradesData);
+    const total = tradesData.length;
+    const wins = tradesData.filter(t => t.profit > 0).length;
+    const totalPnl = tradesData.reduce((s, t) => s + (t.profit || 0), 0);
+    const rrTrades = tradesData.filter(t => t.rr_actual);
+    const avgRr = rrTrades.length > 0 ? rrTrades.reduce((s, t) => s + t.rr_actual, 0) / rrTrades.length : 0;
+    setStats({
+      total_trades: total,
+      wins,
+      losses: total - wins,
+      win_rate: total > 0 ? Math.round(wins / total * 1000) / 10 : 0,
+      total_pnl: Math.round(totalPnl * 100) / 100,
+      avg_rr: Math.round(avgRr * 100) / 100
+    });
+    setLastSync(new Date().toLocaleTimeString());
+  };
+
+  const syncData = async () => {
+    setSyncing(true);
+    await loadData();
+    setSyncing(false);
+  };
 
   useEffect(() => {
-    fetchFromSupabase("trades", "?select=*&order=open_time.desc").then((tradesData) => {
-      if (!Array.isArray(tradesData)) { setLoading(false); return; }
-      setTrades(tradesData);
-      const total = tradesData.length;
-      const wins = tradesData.filter(t => t.profit > 0).length;
-      const totalPnl = tradesData.reduce((s, t) => s + (t.profit || 0), 0);
-      const rrTrades = tradesData.filter(t => t.rr_actual);
-      const avgRr = rrTrades.length > 0 ? rrTrades.reduce((s, t) => s + t.rr_actual, 0) / rrTrades.length : 0;
-      setStats({
-        total_trades: total,
-        wins,
-        losses: total - wins,
-        win_rate: total > 0 ? Math.round(wins / total * 1000) / 10 : 0,
-        total_pnl: Math.round(totalPnl * 100) / 100,
-        avg_rr: Math.round(avgRr * 100) / 100
-      });
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    loadData().finally(() => setLoading(false));
   }, []);
 
   const equityData = () => {
@@ -187,14 +198,25 @@ export default function App() {
       <main style={styles.main}>
         {page === "dashboard" && (
           <>
-            <div style={styles.pageTitle}>Performance Dashboard</div>
-            <div style={styles.pageSub}>Supabase Cloud · {stats.total_trades} trades loaded</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <div style={styles.pageTitle}>Performance Dashboard</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 4 }}>
+                  <div style={styles.pageSub}>Supabase Cloud · {stats.total_trades} trades {lastSync && `· Synced ${lastSync}`}</div>
+                  <button onClick={syncData} disabled={syncing} style={{ padding: "5px 14px", borderRadius: 8, border: "none", background: syncing ? colors.surface : colors.accent, color: syncing ? colors.text2 : "#000", fontSize: 12, fontWeight: 600, cursor: syncing ? "not-allowed" : "pointer" }}>
+                    {syncing ? "⟳ Syncing..." : "⟳ Sync"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div style={styles.kpiRow}>
               <KPICard label="Total P&L" value={`$${stats.total_pnl?.toLocaleString()}`} sub="All time" color={stats.total_pnl >= 0 ? colors.green : colors.red} />
               <KPICard label="Win Rate" value={`${stats.win_rate}%`} sub={`${stats.wins}W · ${stats.losses}L`} color={colors.accent} />
               <KPICard label="Avg R:R" value={stats.avg_rr} sub="Actual R:R" color={colors.yellow} />
               <KPICard label="Total Trades" value={stats.total_trades} sub="All time" />
             </div>
+
             <div style={styles.grid2}>
               <div style={styles.card}>
                 <div style={styles.cardTitle}>Equity Curve</div>
@@ -229,6 +251,7 @@ export default function App() {
                 </ResponsiveContainer>
               </div>
             </div>
+
             <div style={styles.card}>
               <div style={styles.cardTitle}>🧠 AI Pattern Analysis</div>
               <div style={styles.aiBubble}>
