@@ -19,14 +19,27 @@ const parseIL = (str) => {
   return new Date(y, m - 1, d, h, min, sec);
 };
 
-const fmt = (n) => n >= 0 ? `+$${Math.abs(n).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `-$${Math.abs(n).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmt = (n) => {
+  const abs = Math.abs(n).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n >= 0 ? `+$${abs}` : `-$${abs}`;
+};
 
 const C = {
   bg: "#0a0e1a", card: "#111827", card2: "#1a2235",
-  border: "rgba(255,255,255,0.06)",
-  green: "#22c55e", red: "#ef4444", yellow: "#f59e0b", blue: "#3b82f6",
+  border: "rgba(255,255,255,0.06)", border2: "rgba(255,255,255,0.1)",
+  green: "#22c55e", red: "#ef4444", yellow: "#f59e0b",
   accent: "#6366f1", cyan: "#06b6d4",
   text: "#f1f5f9", text2: "#94a3b8", text3: "#475569",
+};
+
+const useIsMobile = () => {
+  const [mobile, setMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return mobile;
 };
 
 const navItems = [
@@ -38,13 +51,12 @@ const navItems = [
 ];
 
 export default function App() {
+  const isMobile = useIsMobile();
   const [trades, setTrades] = useState([]);
   const [stats, setStats] = useState(null);
   const [page, setPage] = useState("dashboard");
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-// eslint-disable-next-line no-unused-vars
-const [lastSync, setLastSync] = useState(null);
   const [period, setPeriod] = useState("all");
 
   const computeStats = (data) => {
@@ -70,7 +82,6 @@ const [lastSync, setLastSync] = useState(null);
     if (!Array.isArray(data)) return;
     setTrades(data);
     setStats(computeStats(data));
-    setLastSync(new Date().toLocaleTimeString('he-IL'));
   };
 
   const syncData = async () => { setSyncing(true); await loadData(); setSyncing(false); };
@@ -177,7 +188,7 @@ const [lastSync, setLastSync] = useState(null);
   };
 
   if (loading) return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: C.bg, color: C.text2, fontFamily: "'Nunito', sans-serif", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: C.bg, color: C.text2, fontFamily: "system-sans-serif", gap: 16 }}>
       <div style={{ fontSize: 32 }}>🔭</div>
       <div style={{ fontSize: 16, fontWeight: 600 }}>Loading TradeLens...</div>
     </div>
@@ -186,79 +197,46 @@ const [lastSync, setLastSync] = useState(null);
   const st = computeStats(filtered());
   const tiltData = tilt();
 
-  return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: "'Nunito', -apple-system, sans-serif", maxWidth: 480, margin: "0 auto", paddingBottom: 80 }}>
-
-      {/* Header */}
-      <div style={{ padding: "20px 20px 0", background: `linear-gradient(180deg, #0f172a 0%, ${C.bg} 100%)` }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>
-              Trade<span style={{ color: C.accent }}>Lens</span>
-            </div>
-            <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>Trading Intelligence</div>
-          </div>
-          <button onClick={syncData} disabled={syncing} style={{ background: syncing ? C.card2 : C.accent, color: "#fff", border: "none", borderRadius: 12, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-            {syncing ? "⟳" : "⟳ Sync"}
-          </button>
-        </div>
-
-        {/* Period selector */}
-        <div style={{ display: "flex", gap: 8, marginTop: 16, marginBottom: 4 }}>
-          {[["week", "1W"], ["month", "1M"], ["3m", "3M"], ["all", "All"]].map(([v, l]) => (
-            <button key={v} onClick={() => setPeriod(v)} style={{ flex: 1, padding: "7px 0", borderRadius: 10, border: "none", background: period === v ? C.accent : C.card2, color: period === v ? "#fff" : C.text2, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-              {l}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div style={{ padding: "16px 20px" }}>
-
-        {/* ── DASHBOARD ── */}
-        {page === "dashboard" && (
-          <>
-            {/* Main P&L card */}
-            <div style={{ background: `linear-gradient(135deg, ${C.accent} 0%, ${C.cyan} 100%)`, borderRadius: 20, padding: "24px 20px", marginBottom: 16, position: "relative", overflow: "hidden" }}>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>Total P&L</div>
-              <div style={{ fontSize: 36, fontWeight: 800, color: "#fff", letterSpacing: -1 }}>{fmt(st.pnl)}</div>
-              <div style={{ display: "flex", gap: 20, marginTop: 16 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>Win Rate</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{st.win_rate}%</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>Trades</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{st.total}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>Profit Factor</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{st.profit_factor}</div>
-                </div>
-              </div>
-              <div style={{ position: "absolute", right: -20, top: -20, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.08)" }} />
-            </div>
-
-            {/* KPI grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-              {[
-                { label: "Wins", value: st.wins, color: C.green, icon: "✓" },
-                { label: "Losses", value: st.losses, color: C.red, icon: "✗" },
-                { label: "Avg Win", value: `$${st.avg_win}`, color: C.green, icon: "↑" },
-                { label: "Avg Loss", value: `$${st.avg_loss}`, color: C.red, icon: "↓" },
-              ].map((k, i) => (
-                <div key={i} style={{ background: C.card, borderRadius: 16, padding: "16px", border: `1px solid ${C.border}` }}>
-                  <div style={{ fontSize: 11, color: C.text3, marginBottom: 6 }}>{k.label}</div>
-                  <div style={{ fontSize: 24, fontWeight: 800, color: k.color }}>{k.value}</div>
+  // ── Shared page content ──
+  const PageContent = () => (
+    <>
+      {page === "dashboard" && (
+        <>
+          {/* Main P&L */}
+          <div style={{ background: `linear-gradient(135deg, ${C.accent} 0%, ${C.cyan} 100%)`, borderRadius: 20, padding: "24px 20px", marginBottom: 16, position: "relative", overflow: "hidden" }}>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>Total P&L</div>
+            <div style={{ fontSize: isMobile ? 34 : 42, fontWeight: 800, color: "#fff", letterSpacing: -1 }}>{fmt(st.pnl)}</div>
+            <div style={{ display: "flex", gap: 24, marginTop: 16 }}>
+              {[["Win Rate", `${st.win_rate}%`], ["Trades", st.total], ["Profit Factor", st.profit_factor]].map(([l, v]) => (
+                <div key={l}>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>{l}</div>
+                  <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: "#fff" }}>{v}</div>
                 </div>
               ))}
             </div>
+            <div style={{ position: "absolute", right: -20, top: -20, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.08)" }} />
+          </div>
 
-            {/* Equity curve */}
-            <div style={{ background: C.card, borderRadius: 20, padding: "18px 16px", marginBottom: 16, border: `1px solid ${C.border}` }}>
+          {/* KPI grid */}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 16 }}>
+            {[
+              { label: "Wins", value: st.wins, color: C.green },
+              { label: "Losses", value: st.losses, color: C.red },
+              { label: "Avg Win", value: `$${st.avg_win}`, color: C.green },
+              { label: "Avg Loss", value: `$${st.avg_loss}`, color: C.red },
+            ].map((k, i) => (
+              <div key={i} style={{ background: C.card, borderRadius: 16, padding: 16, border: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 11, color: C.text3, marginBottom: 6 }}>{k.label}</div>
+                <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, color: k.color }}>{k.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Equity + Sessions */}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.4fr 1fr", gap: 16, marginBottom: 16 }}>
+            <div style={{ background: C.card, borderRadius: 20, padding: "18px 16px", border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Equity Curve</div>
-              <ResponsiveContainer width="100%" height={140}>
+              <ResponsiveContainer width="100%" height={160}>
                 <AreaChart data={equityData()}>
                   <defs>
                     <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
@@ -272,29 +250,27 @@ const [lastSync, setLastSync] = useState(null);
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-
-            {/* Session breakdown */}
             <div style={{ background: C.card, borderRadius: 20, padding: "18px 16px", border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Sessions</div>
               {sessionData().map((s, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                  <div style={{ fontSize: 12, color: C.text2, width: 120 }}>{s.s}</div>
-                  <div style={{ flex: 1, height: 8, background: C.card2, borderRadius: 4, overflow: "hidden" }}>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, color: C.text2, width: 110 }}>{s.s}</div>
+                  <div style={{ flex: 1, height: 7, background: C.card2, borderRadius: 4, overflow: "hidden" }}>
                     <div style={{ width: `${s.wr}%`, height: "100%", background: s.wr >= 55 ? C.green : s.wr >= 40 ? C.yellow : C.red, borderRadius: 4 }} />
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: s.wr >= 55 ? C.green : s.wr >= 40 ? C.yellow : C.red, width: 36, textAlign: "right" }}>{s.wr}%</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: s.wr >= 55 ? C.green : s.wr >= 40 ? C.yellow : C.red, width: 36 }}>{s.wr}%</div>
                 </div>
               ))}
             </div>
-          </>
-        )}
+          </div>
+        </>
+      )}
 
-        {/* ── PERFORMANCE ── */}
-        {page === "performance" && (
-          <>
-            <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Performance</div>
-
-            <div style={{ background: C.card, borderRadius: 20, padding: "18px 16px", marginBottom: 16, border: `1px solid ${C.border}` }}>
+      {page === "performance" && (
+        <>
+          <div style={{ fontSize: isMobile ? 20 : 26, fontWeight: 800, marginBottom: 16 }}>Performance</div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
+            <div style={{ background: C.card, borderRadius: 20, padding: "18px 16px", border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Monthly P&L</div>
               <ResponsiveContainer width="100%" height={180}>
                 <BarChart data={monthlyData()}>
@@ -307,10 +283,9 @@ const [lastSync, setLastSync] = useState(null);
                 </BarChart>
               </ResponsiveContainer>
             </div>
-
-            <div style={{ background: C.card, borderRadius: 20, padding: "18px 16px", marginBottom: 16, border: `1px solid ${C.border}` }}>
+            <div style={{ background: C.card, borderRadius: 20, padding: "18px 16px", border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Monthly Win Rate</div>
-              <ResponsiveContainer width="100%" height={150}>
+              <ResponsiveContainer width="100%" height={180}>
                 <LineChart data={monthlyData()}>
                   <XAxis dataKey="k" tick={{ fill: C.text2, fontSize: 10 }} />
                   <YAxis domain={[0, 100]} hide />
@@ -319,33 +294,31 @@ const [lastSync, setLastSync] = useState(null);
                 </LineChart>
               </ResponsiveContainer>
             </div>
-
-            {/* Over-trading */}
-            <div style={{ background: C.card, borderRadius: 20, padding: "18px 16px", border: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Over-trading Days</div>
-              <div style={{ fontSize: 12, color: C.text2, marginBottom: 14 }}>Days with 3+ trades</div>
-              {overTrading().length === 0
-                ? <div style={{ textAlign: "center", color: C.text2, padding: 20 }}>✅ No over-trading detected</div>
-                : overTrading().map((d, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: i < overTrading().length - 1 ? `1px solid ${C.border}` : "none" }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>{d.d}</div>
-                      <div style={{ fontSize: 11, color: C.text2, marginTop: 2 }}>{d.trades} trades · {d.wr}% WR</div>
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: d.pnl >= 0 ? C.green : C.red }}>{fmt(d.pnl)}</div>
+          </div>
+          <div style={{ background: C.card, borderRadius: 20, padding: "18px 16px", border: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Over-trading Days</div>
+            <div style={{ fontSize: 12, color: C.text2, marginBottom: 14 }}>Days with 3+ trades</div>
+            {overTrading().length === 0
+              ? <div style={{ textAlign: "center", color: C.text2, padding: 20 }}>✅ No over-trading detected</div>
+              : overTrading().map((d, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: i < overTrading().length - 1 ? `1px solid ${C.border}` : "none" }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{d.d}</div>
+                    <div style={{ fontSize: 11, color: C.text2, marginTop: 2 }}>{d.trades} trades · {d.wr}% WR</div>
                   </div>
-                ))
-              }
-            </div>
-          </>
-        )}
+                  <div style={{ fontSize: 14, fontWeight: 800, color: d.pnl >= 0 ? C.green : C.red }}>{fmt(d.pnl)}</div>
+                </div>
+              ))
+            }
+          </div>
+        </>
+      )}
 
-        {/* ── TIMING ── */}
-        {page === "timing" && (
-          <>
-            <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Timing Analysis</div>
-
-            <div style={{ background: C.card, borderRadius: 20, padding: "18px 16px", marginBottom: 16, border: `1px solid ${C.border}` }}>
+      {page === "timing" && (
+        <>
+          <div style={{ fontSize: isMobile ? 20 : 26, fontWeight: 800, marginBottom: 16 }}>Timing Analysis</div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
+            <div style={{ background: C.card, borderRadius: 20, padding: "18px 16px", border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Win Rate by Hour</div>
               <div style={{ fontSize: 11, color: C.text2, marginBottom: 14 }}>Israel time (AM/PM)</div>
               <ResponsiveContainer width="100%" height={180}>
@@ -359,92 +332,127 @@ const [lastSync, setLastSync] = useState(null);
                 </BarChart>
               </ResponsiveContainer>
             </div>
-
-            <div style={{ background: C.card, borderRadius: 20, padding: "18px 16px", marginBottom: 16, border: `1px solid ${C.border}` }}>
+            <div style={{ background: C.card, borderRadius: 20, padding: "18px 16px", border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Performance by Day</div>
               {dayData().filter(d => d.total > 0).map((d, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, width: 36 }}>{d.d}</div>
-                  <div style={{ flex: 1, height: 8, background: C.card2, borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{ flex: 1, height: 7, background: C.card2, borderRadius: 4, overflow: "hidden" }}>
                     <div style={{ width: `${d.wr}%`, height: "100%", background: d.wr >= 55 ? C.green : d.wr >= 40 ? C.yellow : C.red, borderRadius: 4 }} />
                   </div>
-                  <div style={{ fontSize: 12, color: C.text2, width: 50, textAlign: "right" }}>{d.wr}%</div>
+                  <div style={{ fontSize: 12, color: C.text2, width: 36 }}>{d.wr}%</div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: d.pnl >= 0 ? C.green : C.red, width: 70, textAlign: "right" }}>{fmt(d.pnl)}</div>
                 </div>
               ))}
             </div>
-          </>
-        )}
+          </div>
+        </>
+      )}
 
-        {/* ── TRADES ── */}
-        {page === "trades" && (
-          <>
-            <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Trade Log</div>
-            {trades.slice(0, 50).map((t, i) => (
-              <div key={i} style={{ background: C.card, borderRadius: 16, padding: "14px 16px", marginBottom: 10, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: t.direction === "BUY" ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
+      {page === "trades" && (
+        <>
+          <div style={{ fontSize: isMobile ? 20 : 26, fontWeight: 800, marginBottom: 16 }}>Trade Log <span style={{ fontSize: 14, color: C.text2, fontWeight: 400 }}>{trades.length} trades</span></div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
+            {trades.slice(0, 60).map((t, i) => (
+              <div key={i} style={{ background: C.card, borderRadius: 16, padding: "14px 16px", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: t.direction === "BUY" ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
                   {t.direction === "BUY" ? "↑" : "↓"}
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 800 }}>{t.symbol}</div>
-                  <div style={{ fontSize: 11, color: C.text2, marginTop: 3 }}>{t.open_time} · {t.session}</div>
+                  <div style={{ fontSize: 11, color: C.text2, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.open_time} · {t.session}</div>
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: t.profit >= 0 ? C.green : C.red }}>{fmt(t.profit || 0)}</div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: t.profit >= 0 ? C.green : C.red }}>{fmt(t.profit || 0)}</div>
                   <div style={{ fontSize: 11, color: C.text2, marginTop: 2 }}>{t.duration_min}min</div>
                 </div>
               </div>
             ))}
-          </>
-        )}
+          </div>
+        </>
+      )}
 
-        {/* ── PSYCHOLOGY ── */}
-        {page === "psychology" && (
-          <>
-            <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Psychology</div>
-
-            {/* Tilt cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-              <div style={{ background: tiltData.maxL >= 5 ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.08)", borderRadius: 16, padding: 16, border: `1px solid ${tiltData.maxL >= 5 ? "rgba(239,68,68,0.3)" : C.border}` }}>
-                <div style={{ fontSize: 11, color: C.text2 }}>Max Losses Streak</div>
-                <div style={{ fontSize: 32, fontWeight: 800, color: tiltData.maxL >= 5 ? C.red : C.green, marginTop: 4 }}>{tiltData.maxL}</div>
-              </div>
-              <div style={{ background: tiltData.wrAfterL < 40 ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.08)", borderRadius: 16, padding: 16, border: `1px solid ${tiltData.wrAfterL < 40 ? "rgba(239,68,68,0.3)" : C.border}` }}>
-                <div style={{ fontSize: 11, color: C.text2 }}>WR After Loss</div>
-                <div style={{ fontSize: 32, fontWeight: 800, color: tiltData.wrAfterL < 40 ? C.red : C.green, marginTop: 4 }}>{tiltData.wrAfterL}%</div>
-              </div>
-            </div>
-
-            {/* Insights */}
+      {page === "psychology" && (
+        <>
+          <div style={{ fontSize: isMobile ? 20 : 26, fontWeight: 800, marginBottom: 16 }}>Psychology</div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap: 12, marginBottom: 16 }}>
             {[
-              tiltData.maxL >= 3 && { color: C.red, icon: "🔴", title: "Tilt Risk", text: `Your longest losing streak is ${tiltData.maxL} trades. Consider a daily loss limit rule.` },
-              tiltData.wrAfterL < 40 && { color: C.red, icon: "⚠️", title: "Revenge Trading", text: `Win rate after a loss: ${tiltData.wrAfterL}%. You tend to overtrade after losses.` },
-              tiltData.wrAfterW > 60 && { color: C.green, icon: "✅", title: "Good Momentum", text: `Win rate after a win: ${tiltData.wrAfterW}%. You ride momentum well.` },
-              overTrading().length > 0 && { color: C.yellow, icon: "📊", title: "Over-trading", text: `${overTrading().length} days with 3+ trades. Worst: ${overTrading()[0].d} (${overTrading()[0].trades} trades, ${fmt(overTrading()[0].pnl)})` },
-            ].filter(Boolean).map((ins, i) => (
-              <div key={i} style={{ background: C.card, borderRadius: 16, padding: 16, marginBottom: 12, border: `1px solid ${ins.color}44` }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: ins.color, marginBottom: 6 }}>{ins.icon} {ins.title}</div>
-                <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6 }}>{ins.text}</div>
+              { label: "Max Loss Streak", value: tiltData.maxL, color: tiltData.maxL >= 5 ? C.red : C.green },
+              { label: "WR After Loss", value: `${tiltData.wrAfterL}%`, color: tiltData.wrAfterL < 40 ? C.red : C.green },
+              { label: "WR After Win", value: `${tiltData.wrAfterW}%`, color: tiltData.wrAfterW > 55 ? C.green : C.yellow },
+            ].map((k, i) => (
+              <div key={i} style={{ background: C.card, borderRadius: 16, padding: 16, border: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 11, color: C.text3, marginBottom: 6 }}>{k.label}</div>
+                <div style={{ fontSize: isMobile ? 26 : 32, fontWeight: 800, color: k.color }}>{k.value}</div>
               </div>
             ))}
-
-            {/* Deep analysis */}
-            <div style={{ background: `linear-gradient(135deg, rgba(99,102,241,0.12), rgba(6,182,212,0.08))`, borderRadius: 20, padding: 18, border: "1px solid rgba(99,102,241,0.2)" }}>
-              <div style={{ fontSize: 11, color: C.accent, letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 }}>● Deep Analysis</div>
-              <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.7 }}>
-                With <strong style={{ color: C.text }}>{stats?.total} trades</strong> and {stats?.win_rate}% win rate, your profit factor is <strong style={{ color: stats?.profit_factor >= 1.5 ? C.green : C.yellow }}>{stats?.profit_factor}</strong>.
-                {stats?.profit_factor < 1 && " ⚠️ Below 1 — losses exceed gains. Focus on quality over quantity."}
-                {stats?.profit_factor >= 1 && stats?.profit_factor < 1.5 && " Your edge is real but fragile. Stay consistent."}
-                {stats?.profit_factor >= 1.5 && " Strong edge. Protect it with discipline."}
-              </div>
+          </div>
+          {[
+            tiltData.maxL >= 3 && { color: C.red, icon: "🔴", title: "Tilt Risk", text: `Longest losing streak: ${tiltData.maxL} trades. Consider a daily loss limit.` },
+            tiltData.wrAfterL < 40 && { color: C.red, icon: "⚠️", title: "Revenge Trading", text: `Win rate after a loss: ${tiltData.wrAfterL}%. You tend to overtrade after losses.` },
+            tiltData.wrAfterW > 60 && { color: C.green, icon: "✅", title: "Good Momentum", text: `Win rate after a win: ${tiltData.wrAfterW}%. You ride momentum well.` },
+            overTrading().length > 0 && { color: C.yellow, icon: "📊", title: "Over-trading", text: `${overTrading().length} days with 3+ trades detected.` },
+          ].filter(Boolean).map((ins, i) => (
+            <div key={i} style={{ background: C.card, borderRadius: 16, padding: 16, marginBottom: 12, border: `1px solid ${ins.color}44` }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: ins.color, marginBottom: 6 }}>{ins.icon} {ins.title}</div>
+              <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6 }}>{ins.text}</div>
             </div>
-          </>
-        )}
+          ))}
+          <div style={{ background: `linear-gradient(135deg, rgba(99,102,241,0.12), rgba(6,182,212,0.08))`, borderRadius: 20, padding: 18, border: "1px solid rgba(99,102,241,0.2)" }}>
+            <div style={{ fontSize: 11, color: C.accent, letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 }}>● Deep Analysis</div>
+            <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.7 }}>
+              With <strong style={{ color: C.text }}>{stats?.total} trades</strong> and {stats?.win_rate}% win rate, your profit factor is <strong style={{ color: stats?.profit_factor >= 1.5 ? C.green : C.yellow }}>{stats?.profit_factor}</strong>.
+              {stats?.profit_factor < 1 && " ⚠️ Losses exceed gains. Focus on quality over quantity."}
+              {stats?.profit_factor >= 1 && stats?.profit_factor < 1.5 && " Your edge exists but is fragile. Stay consistent."}
+              {stats?.profit_factor >= 1.5 && " Strong edge. Protect it with discipline."}
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
 
+  // Period + Sync bar
+  const Controls = () => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+      {[["week", "1W"], ["month", "1M"], ["3m", "3M"], ["all", "All"]].map(([v, l]) => (
+        <button key={v} onClick={() => setPeriod(v)} style={{ padding: "7px 16px", borderRadius: 10, border: "none", background: period === v ? C.accent : C.card2, color: period === v ? "#fff" : C.text2, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+          {l}
+        </button>
+      ))}
+      <div style={{ flex: 1 }} />
+      <button onClick={syncData} disabled={syncing} style={{ background: syncing ? C.card2 : C.accent, color: "#fff", border: "none", borderRadius: 10, padding: "7px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+        {syncing ? "⟳" : "⟳ Sync"}
+      </button>
+    </div>
+  );
+
+  // ── MOBILE LAYOUT ──
+  if (isMobile) return (
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: "system-ui, sans-serif", paddingBottom: 80 }}>
+      <div style={{ padding: "20px 16px 0", background: `linear-gradient(180deg, #0f172a 0%, ${C.bg} 100%)` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 800 }}>Trade<span style={{ color: C.accent }}>Lens</span></div>
+            <div style={{ fontSize: 11, color: C.text3 }}>Trading Intelligence</div>
+          </div>
+          <button onClick={syncData} disabled={syncing} style={{ background: syncing ? C.card2 : C.accent, color: "#fff", border: "none", borderRadius: 12, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+            {syncing ? "⟳" : "⟳ Sync"}
+          </button>
+        </div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+          {[["week", "1W"], ["month", "1M"], ["3m", "3M"], ["all", "All"]].map(([v, l]) => (
+            <button key={v} onClick={() => setPeriod(v)} style={{ flex: 1, padding: "7px 0", borderRadius: 10, border: "none", background: period === v ? C.accent : C.card2, color: period === v ? "#fff" : C.text2, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              {l}
+            </button>
+          ))}
+        </div>
       </div>
-
-      {/* Bottom Navigation */}
-      <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "rgba(10,14,26,0.95)", backdropFilter: "blur(20px)", borderTop: `1px solid ${C.border}`, display: "flex", padding: "10px 0 20px" }}>
+      <div style={{ padding: "16px" }}>
+        <PageContent />
+      </div>
+      {/* Bottom Nav */}
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "rgba(10,14,26,0.97)", backdropFilter: "blur(20px)", borderTop: `1px solid ${C.border}`, display: "flex", padding: "10px 0 20px" }}>
         {navItems.map(n => (
           <button key={n.id} onClick={() => setPage(n.id)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", padding: "4px 0" }}>
             <div style={{ fontSize: 20 }}>{n.icon}</div>
@@ -453,7 +461,41 @@ const [lastSync, setLastSync] = useState(null);
           </button>
         ))}
       </div>
+    </div>
+  );
 
+  // ── DESKTOP LAYOUT ──
+  return (
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: "system-ui, sans-serif", display: "flex" }}>
+      {/* Sidebar */}
+      <aside style={{ width: 240, background: "#0d1220", borderRight: `1px solid ${C.border}`, padding: "28px 0", display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh" }}>
+        <div style={{ padding: "0 24px 28px", borderBottom: `1px solid ${C.border}`, marginBottom: 24 }}>
+          <div style={{ fontSize: 22, fontWeight: 800 }}>Trade<span style={{ color: C.accent }}>Lens</span></div>
+          <div style={{ fontSize: 10, color: C.text3, letterSpacing: 2, marginTop: 2 }}>TRADING INTELLIGENCE</div>
+        </div>
+        {navItems.map(n => (
+          <button key={n.id} onClick={() => setPage(n.id)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 24px", background: page === n.id ? "rgba(99,102,241,0.1)" : "none", borderLeft: page === n.id ? `3px solid ${C.accent}` : "3px solid transparent", border: "none", borderRight: "none", cursor: "pointer", color: page === n.id ? C.accent : C.text2, fontSize: 14, fontWeight: 600, width: "100%", textAlign: "left" }}>
+            <span style={{ fontSize: 18 }}>{n.icon}</span> {n.label}
+          </button>
+        ))}
+        <div style={{ marginTop: "auto", padding: "20px 24px", borderTop: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 12, fontWeight: 700 }}>Supabase Cloud</div>
+          <div style={{ fontSize: 11, color: C.green, marginTop: 2 }}>● Connected</div>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <main style={{ flex: 1, padding: "32px 36px", overflowY: "auto" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+            <div style={{ fontSize: 26, fontWeight: 800 }}>
+              {navItems.find(n => n.id === page)?.label}
+            </div>
+            <Controls />
+          </div>
+          <PageContent />
+        </div>
+      </main>
     </div>
   );
 }
