@@ -53,6 +53,7 @@ const navItems = [
 export default function App() {
   const isMobile = useIsMobile();
   const [trades, setTrades] = useState([]);
+// eslint-disable-next-line no-unused-vars
   const [stats, setStats] = useState(null);
   const [page, setPage] = useState("dashboard");
   const [loading, setLoading] = useState(true);
