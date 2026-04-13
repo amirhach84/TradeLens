@@ -33,7 +33,7 @@ const C = {
 };
 
 const useIsMobile = () => {
-  const [mobile, setMobile] = useState(window.innerWidth < 768);
+  const [mobile, setMobile] = useState(window.innerWidth < 768); // eslint-disable-line
   useEffect(() => {
     const handler = () => setMobile(window.innerWidth < 768);
     window.addEventListener('resize', handler);
