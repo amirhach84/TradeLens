@@ -440,6 +440,7 @@ export default function App() {
       (tiltData.wrAfterW / 100 * 15) +
       (Math.max(0, 10 - tiltData.maxL) / 10 * 20)
     );
+    // eslint-disable-next-line no-unused-vars
     const scoreColor = score >= 70 ? C.green : score >= 45 ? C.yellow : C.red;
     const scoreDesc = score >= 70 ? "✅ Strong trader" : score >= 45 ? "⚠️ Developing — room to grow" : "🔴 Needs improvement";
 
